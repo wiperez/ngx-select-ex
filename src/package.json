@@ -1,5 +1,5 @@
 {
-  "name": "ng2-select-ex",
+  "name": "ngx-select-ex",
   "peerDependencies": {
     "@angular/common": "*",
     "@angular/core": "*"

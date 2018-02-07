@@ -13,7 +13,7 @@ import {SingleDemoComponent} from './components/select/single-demo';
 import {SampleSectionComponent} from './components/sample-section.component';
 
 // import {NgxSelectModule} from '../../../src';
-import { NgxSelectModule } from 'ng2-select-ex';
+import { NgxSelectModule } from 'ngx-select-ex';
 
 @NgModule({
     declarations: [

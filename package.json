@@ -1,5 +1,5 @@
 {
-  "name": "ng2-select-ex-base",
+  "name": "ngx-select-ex-base",
   "version": "3.1.1",
   "private": true,
   "description": "Angular based replacement for select boxes",
@@ -23,7 +23,7 @@
     "test-coverage": "ng test -sr -cc",
     "version": "npm run flow.changelog && git add -A"
   },
-  "main": "bundles/ng2-select-ex.umd.js",
+  "main": "bundles/ngx-select-ex.umd.js",
   "module": "index.js",
   "typings": "index.d.ts",
   "keywords": [
@@ -42,12 +42,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@github.com:optimistex/ng2-select-ex.git"
+    "url": "git+ssh://git@github.com:optimistex/ngx-select-ex.git"
   },
   "bugs": {
-    "url": "https://github.com/optimistex/ng2-select-ex/issues"
+    "url": "https://github.com/optimistex/ngx-select-ex/issues"
   },
-  "homepage": "https://github.com/optimistex/ng2-select-ex#readme",
+  "homepage": "https://github.com/optimistex/ngx-select-ex#readme",
   "peerDependencies": {
     "@angular/common": ">=4.3.0 || >5.0.0",
     "@angular/core": ">=4.3.0 || >5.0.0"

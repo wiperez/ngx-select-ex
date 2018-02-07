@@ -1,6 +1,6 @@
 ### Usage
 ```typescript
-import {NgxSelectModule} from 'ng2-select-ex';
+import {NgxSelectModule} from 'ngx-select-ex';
 ```
 
 ### Properties

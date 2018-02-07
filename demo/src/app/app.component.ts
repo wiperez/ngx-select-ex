@@ -1,6 +1,6 @@
 import { Component, AfterContentInit } from '@angular/core';
 
-const pac = require('ng2-select-ex/package.json');
+const pac = require('ngx-select-ex/package.json');
 
 const gettingStarted = require('html-loader!markdown-loader!../getting-started.md');
 
@@ -9,16 +9,16 @@ const gettingStarted = require('html-loader!markdown-loader!../getting-started.m
   template: `
     <main class="bd-pageheader">
       <div class="container">
-        <h1>ng2-select-ex v{{p?.version}}</h1>
+        <h1>ngx-select-ex v{{p?.version}}</h1>
         <p>Native Angular2 component for Select</p>
-        <a class="btn btn-primary" href="https://github.com/optimistex/ng2-select-ex">View on GitHub</a>
+        <a class="btn btn-primary" href="https://github.com/optimistex/ngx-select-ex">View on GitHub</a>
         <div class="row">
           <div class="col-lg-1">
-            <iframe src="https://ghbtns.com/github-btn.html?user=optimistex&repo=ng2-select-ex&type=star&count=true" frameborder="0"
+            <iframe src="https://ghbtns.com/github-btn.html?user=optimistex&repo=ngx-select-ex&type=star&count=true" frameborder="0"
                     scrolling="0" width="170px" height="20px"></iframe>
           </div>
           <div class="col-lg-1">
-            <iframe src="https://ghbtns.com/github-btn.html?user=optimistex&repo=ng2-select-ex&type=fork&count=true" frameborder="0"
+            <iframe src="https://ghbtns.com/github-btn.html?user=optimistex&repo=ngx-select-ex&type=fork&count=true" frameborder="0"
                     scrolling="0" width="170px" height="20px"></iframe>
           </div>
         </div>
@@ -33,7 +33,7 @@ const gettingStarted = require('html-loader!markdown-loader!../getting-started.m
 
     <footer class="footer">
       <div class="container">
-        <p class="text-muted text-center"><a href="https://github.com/optimistex/ng2-select-ex">ng2-select-ex</a> is maintained by <a
+        <p class="text-muted text-center"><a href="https://github.com/optimistex/ngx-select-ex">ngx-select-ex</a> is maintained by <a
             href="https://github.com/optimistex">optimistex</a>.</p>
       </div>
     </footer>
