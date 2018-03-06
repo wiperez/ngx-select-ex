@@ -10,6 +10,7 @@
 Native Angular component for Select
 
 - Requires [Angular](https://angular.io/) version 5 or higher!
+- Compatible with [Angular](https://angular.io/) version 4.
 - Compatible with [Bootstrap 3](https://getbootstrap.com/docs/3.3/) and **[Bootstrap 4](https://getbootstrap.com/)**
 
 ## Usage
@@ -20,10 +21,10 @@ Native Angular component for Select
     npm i ngx-select-ex --save
     ```
 
-    For usage with Angular 4 install deprecated version 3.1.2:
+    For usage with Angular 4 install using the following command:
 
     ```bash
-    npm i ngx-select-ex@3.1.2 --save
+    npm i ngx-select-ex@ng4 --save
     ```
 
 2. Add NgxSelectModule into your AppModule class. app.module.ts would look like this:
@@ -42,6 +43,28 @@ Native Angular component for Select
     export class AppModule {
     }
     ```
+    
+    If you want to change the default options then use next code:
+    ```typescript
+    import {NgModule} from '@angular/core';
+    import {BrowserModule} from '@angular/platform-browser';
+    import {AppComponent} from './app.component';
+    import { NgxSelectModule, INgxSelectOptions } from 'ngx-select-ex';
+ 
+    const CustomSelectOptions: INgxSelectOptions = { // Check the interface fo more options
+        optionValueField: 'id',
+        optionTextField: 'name'
+    };
+
+    @NgModule({
+      imports: [BrowserModule, NgxSelectModule.forRoot(CustomSelectOptions)],
+      declarations: [AppComponent],
+      bootstrap: [AppComponent],
+    })
+    export class AppModule {
+    }
+    ```
+    
 3. Include Bootstrap styles.
     For example add to your index.html
 
@@ -75,6 +98,9 @@ Any item can be `disabled` for prevent selection. For disable an item add the pr
 | [disabled] | boolean | `false` |  When `true`, it specifies that the component should be disabled |
 | [defaultValue] | any[] | `[]` |  Use to set default value |
 | autoSelectSingleOption | boolean | `false` | Auto select a non disabled single option |
+| autoClearSearch | boolean | `false` | Auto clear a search text after select an option. Has effect for `multiple = true` |
+| noResultsFound | string | `'No results found'` | The default text showed when a search has no results |
+| size | `'small'/'default'/'large'` | `'default'` | Adding bootstrap classes: form-control-sm, input-sm, form-control-lg input-lg, btn-sm, btn-lg |
 
 | Output  | Description |
 | ------------- | ------------- |
@@ -85,8 +111,9 @@ Any item can be `disabled` for prevent selection. For disable an item add the pr
 | (close)  | Fired on select dropdown close |
 | (select)  | Fired on an item selected by user. Returns value of the selected item. |
 | (remove)  | Fired on an item removed by user. Returns value of the removed item. |
+| (navigated)  | Fired on navigate by the dropdown list. Returns: `INgxOptionNavigated`. |
 
-**Warning!** Although the component contains the `select` and the `remove` events, the better solution is using `valueChanches` of the `FormControl`.
+**Warning!** Although the component contains the `select` and the `remove` events, the better solution is using `valueChanges` of the `FormControl`.
 
 ```typescript
 import {Component} from '@angular/core';
@@ -121,6 +148,7 @@ List of styles for customization:
 - **`ngx-select__selected-single`** - The selected item with single mode. It's available when the property multiple  is false.
 - **`ngx-select__selected-plural`** - The multiple selected item. It's available when the property multiple is true.
 - **`ngx-select__allow-clear`** - The indicator that the selected single item can be removed. It's available while properties the multiple is false and the allowClear is true.
+- **`ngx-select__toggle-buttons`** - The container of buttons such as the clear and the toggle.
 - **`ngx-select__toggle-caret`** - The drop-down button of the single mode. It's available when the property multiple  is false.
 - **`ngx-select__clear`** - The button clear.
 - **`ngx-select__clear-icon`** - The cross icon.
@@ -130,6 +158,61 @@ List of styles for customization:
 - **`ngx-select__item`** - An item.
 - **`ngx-select__item_disabled`** - Modifier of a disabled item.
 - **`ngx-select__item_active`** - Modifier of the activated item.
+
+### Templates
+
+For extended rendering customisation you are can use the `ng-template`:
+
+```html
+<ngx-select [items]="items" optionValueField="hex" optionTextField="name" [(ngModel)]="ngxValue">
+
+    <ng-template ngx-select-option-selected let-option let-text="text">
+        <span class="color-box" [style]="style('background-color:' + option.value)"></span>
+        <span [innerHtml]="text"></span>
+        ({{option.data.hex}})
+    </ng-template>
+
+    <ng-template ngx-select-option let-option let-text="text">
+        <span class="color-box" [style]="style('background-color:' + option.value)"></span>
+        <span [innerHtml]="text"></span>
+        ({{option.data.hex}})
+    </ng-template>
+
+    <ng-template ngx-select-option-not-found>
+        Nothing found
+    </ng-template>
+
+</ngx-select>
+``` 
+
+Also, you are can mix directives for reducing template:
+```html
+<ngx-select [items]="items" optionValueField="hex" optionTextField="name" [(ngModel)]="ngxValue">
+    <ng-template ngx-select-option-selected ngx-select-option let-option let-text="text">
+        <span class="color-box" [style]="style('background-color:' + option.value)"></span>
+        <span [innerHtml]="text"></span>
+        ({{option.data.hex}})
+    </ng-template>
+
+    <ng-template ngx-select-option-not-found>
+        Not found <button (click)="addItem()">(+) Add new item</button>
+    </ng-template>
+</ngx-select>
+``` 
+
+Description details of the directives:
+1. `ngx-select-option-selected` - Customization rendering selected options.
+    Representing variables:
+    - `option` (implicit) - object of type `INgxSelectOption`.
+    - `text` - The text defined by the property `optionTextField`.
+    - `index` - Number value of index the option in the select list. Always equal to zero for the single select. 
+2. `ngx-select-option` - Customization rendering options in the dropdown menu.
+    Representing variables:
+    - `option` (implicit) - object of type `INgxSelectOption`.
+    - `text` - The highlighted text defined by the property `optionTextField`. It is highlighted in the search. 
+    - `index` - Number value of index for the top level.  
+    - `subIndex` - Number value of index for the second level.
+3. `ngx-select-option-not-found` - Customization "not found text". Does not represent any variables.
 
 ## Troubleshooting
 

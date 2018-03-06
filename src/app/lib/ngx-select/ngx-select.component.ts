@@ -1,6 +1,7 @@
 import {
     AfterContentChecked, DoCheck, Input, Output, ViewChild,
-    Component, ElementRef, EventEmitter, forwardRef, HostListener, IterableDiffer, IterableDiffers
+    Component, ElementRef, EventEmitter, forwardRef, HostListener, IterableDiffer, IterableDiffers, ChangeDetectorRef, ContentChild,
+    TemplateRef, Optional, Inject, InjectionToken
 } from '@angular/core';
 import {ControlValueAccessor, NG_VALUE_ACCESSOR} from '@angular/forms';
 import {DomSanitizer, SafeHtml} from '@angular/platform-browser';
@@ -22,9 +23,13 @@ import 'rxjs/add/operator/do';
 import * as lodashNs from 'lodash';
 import * as escapeStringNs from 'escape-string-regexp';
 import {NgxSelectOptGroup, NgxSelectOption, TSelectOption} from './ngx-select.classes';
+import {NgxSelectOptionDirective, NgxSelectOptionNotFoundDirective, NgxSelectOptionSelectedDirective} from './ngx-templates.directive';
+import {INgxOptionNavigated, INgxSelectOptions} from './ngx-select.interfaces';
 
 const _ = lodashNs;
 const escapeString = escapeStringNs;
+
+export const NGX_SELECT_OPTIONS = new InjectionToken<any>('NGX_SELECT_OPTIONS');
 
 export interface INgxSelectComponentMouseEvent extends MouseEvent {
     clickedSelectComponent?: NgxSelectComponent;
@@ -32,6 +37,10 @@ export interface INgxSelectComponentMouseEvent extends MouseEvent {
 
 enum ENavigation {
     first, previous, next, last
+}
+
+function propertyExists(obj: Object, propertyName: string) {
+    return propertyName in obj;
 }
 
 @Component({
@@ -46,7 +55,7 @@ enum ENavigation {
         }
     ]
 })
-export class NgxSelectComponent implements ControlValueAccessor, DoCheck, AfterContentChecked {
+export class NgxSelectComponent implements INgxSelectOptions, ControlValueAccessor, DoCheck, AfterContentChecked {
     @Input() public items: any[];
     @Input() public optionValueField = 'id';
     @Input() public optionTextField = 'text';
@@ -59,6 +68,10 @@ export class NgxSelectComponent implements ControlValueAccessor, DoCheck, AfterC
     @Input() public disabled = false;
     @Input() public defaultValue: any[] = [];
     @Input() public autoSelectSingleOption = false;
+    @Input() public autoClearSearch = false;
+    @Input() public noResultsFound = 'No results found';
+    @Input() public size: 'small' | 'default' | 'large' = 'default';
+    public keyCodeToRemoveSelected = 46; /*key delete*/
 
     @Output() public typed = new EventEmitter<string>();
     @Output() public focus = new EventEmitter<void>();
@@ -67,10 +80,15 @@ export class NgxSelectComponent implements ControlValueAccessor, DoCheck, AfterC
     @Output() public close = new EventEmitter<void>();
     @Output() public select = new EventEmitter<any>();
     @Output() public remove = new EventEmitter<any>();
+    @Output() public navigated = new EventEmitter<INgxOptionNavigated>();
 
     @ViewChild('main') protected mainElRef: ElementRef;
     @ViewChild('input') protected inputElRef: ElementRef;
     @ViewChild('choiceMenu') protected choiceMenuElRef: ElementRef;
+
+    @ContentChild(NgxSelectOptionDirective, {read: TemplateRef}) templateOption: NgxSelectOptionDirective;
+    @ContentChild(NgxSelectOptionSelectedDirective, {read: TemplateRef}) templateSelectedOption: NgxSelectOptionSelectedDirective;
+    @ContentChild(NgxSelectOptionNotFoundDirective, {read: TemplateRef}) templateOptionNotFound: NgxSelectOptionNotFoundDirective;
 
     public optionsOpened = false;
     public optionsFiltered: TSelectOption[];
@@ -80,7 +98,7 @@ export class NgxSelectComponent implements ControlValueAccessor, DoCheck, AfterC
     private defaultValueDiffer: IterableDiffer<any[]>;
     private actualValue: any[] = [];
 
-    private subjOptions = new BehaviorSubject<TSelectOption[]>([]);
+    public subjOptions = new BehaviorSubject<TSelectOption[]>([]);
     private subjSearchText = new BehaviorSubject<string>('');
 
     private subjOptionsSelected = new BehaviorSubject<NgxSelectOption[]>([]);
@@ -94,7 +112,10 @@ export class NgxSelectComponent implements ControlValueAccessor, DoCheck, AfterC
     private _focusToInput = false;
     private isFocused = false;
 
-    constructor(private sanitizer: DomSanitizer, iterableDiffers: IterableDiffers) {
+    constructor(iterableDiffers: IterableDiffers, private sanitizer: DomSanitizer, private cd: ChangeDetectorRef,
+                @Inject(NGX_SELECT_OPTIONS) @Optional() defaultOptions: INgxSelectOptions) {
+        Object.assign(this, defaultOptions);
+
         // differs
         this.itemsDiffer = iterableDiffers.find([]).create<any>(null);
         this.defaultValueDiffer = iterableDiffers.find([]).create<any>(null);
@@ -162,6 +183,18 @@ export class NgxSelectComponent implements ControlValueAccessor, DoCheck, AfterC
             .subscribe();
     }
 
+    public setFormControlSize(otherClassNames: Object = {}, useFormControl: boolean = true) {
+        const formControlExtraClasses = useFormControl ? {
+            'form-control-sm input-sm': this.size === 'small',
+            'form-control-lg input-lg': this.size === 'large'
+        } : {};
+        return Object.assign(formControlExtraClasses, otherClassNames);
+    }
+
+    public setBtnSize() {
+        return {'btn-sm': this.size === 'small', 'btn-lg': this.size === 'large'};
+    }
+
     public get optionsSelected(): NgxSelectOption[] {
         return this.subjOptionsSelected.value;
     }
@@ -180,6 +213,7 @@ export class NgxSelectComponent implements ControlValueAccessor, DoCheck, AfterC
         if (event.clickedSelectComponent !== this) {
             if (this.optionsOpened) {
                 this.optionsClose();
+                this.cd.detectChanges(); // fix error because of delay between different events
             }
             if (this.isFocused) {
                 this.isFocused = false;
@@ -205,28 +239,29 @@ export class NgxSelectComponent implements ControlValueAccessor, DoCheck, AfterC
 
     private navigateOption(navigation: ENavigation) {
         this.optionsFilteredFlat()
-            .map((options: NgxSelectOption[]) => {
+            .map<NgxSelectOption[], INgxOptionNavigated>((options: NgxSelectOption[]) => {
+                const navigated: INgxOptionNavigated = {index: -1, activeOption: null, filteredOptionList: options};
                 let newActiveIdx;
                 switch (navigation) {
                     case ENavigation.first:
-                        return options[0];
+                        navigated.index = 0;
+                        break;
                     case ENavigation.previous:
                         newActiveIdx = options.indexOf(this.optionActive) - 1;
-                        if (newActiveIdx >= 0) {
-                            return options[newActiveIdx];
-                        }
-                        return options[options.length - 1];
+                        navigated.index = newActiveIdx >= 0 ? newActiveIdx : options.length - 1;
+                        break;
                     case ENavigation.next:
                         newActiveIdx = options.indexOf(this.optionActive) + 1;
-                        if (newActiveIdx < options.length) {
-                            return options[newActiveIdx];
-                        }
-                        return options[0];
+                        navigated.index = newActiveIdx < options.length ? newActiveIdx : 0;
+                        break;
                     case ENavigation.last:
-                        return options[options.length - 1];
+                        navigated.index = options.length - 1;
+                        break;
                 }
+                navigated.activeOption = options[navigated.index];
+                return navigated;
             })
-            .subscribe((newActiveOption: NgxSelectOption) => this.optionActivate(newActiveOption));
+            .subscribe((newNavigated: INgxOptionNavigated) => this.optionActivate(newNavigated));
     }
 
     public ngDoCheck(): void {
@@ -284,7 +319,7 @@ export class NgxSelectComponent implements ControlValueAccessor, DoCheck, AfterC
                     this.navigateOption(ENavigation.next);
                     break;
             }
-        } else if (!this.optionsOpened && event.keyCode === 46 /*key delete*/) {
+        } else if (!this.optionsOpened && event.keyCode === this.keyCodeToRemoveSelected) {
             this.optionRemove(this.subjOptionsSelected.value[this.subjOptionsSelected.value.length - 1], event);
         }
     }
@@ -336,7 +371,7 @@ export class NgxSelectComponent implements ControlValueAccessor, DoCheck, AfterC
             event.preventDefault();
             event.stopPropagation();
         }
-        if (!option.disabled) {
+        if (option && !option.disabled) {
             this.subjOptionsSelected.next((this.multiple ? this.subjOptionsSelected.value : []).concat([option]));
             this.select.emit(option.value);
             this.optionsClose(true);
@@ -360,9 +395,10 @@ export class NgxSelectComponent implements ControlValueAccessor, DoCheck, AfterC
         return false;
     }
 
-    protected optionActivate(option: NgxSelectOption): void {
-        if (!option || !option.disabled) {
-            this.optionActive = option;
+    protected optionActivate(navigated: INgxOptionNavigated): void {
+        if (!navigated.activeOption || !navigated.activeOption.disabled) {
+            this.optionActive = navigated.activeOption;
+            this.navigated.emit(navigated);
         }
     }
 
@@ -400,7 +436,11 @@ export class NgxSelectComponent implements ControlValueAccessor, DoCheck, AfterC
             this.optionsOpened = true;
             this.subjSearchText.next(search);
             if (!this.multiple && this.subjOptionsSelected.value.length) {
-                this.optionActivate(this.subjOptionsSelected.value[0]);
+                this.optionsFilteredFlat().subscribe((options: NgxSelectOption[]) => this.optionActivate({
+                    activeOption: this.subjOptionsSelected.value[0],
+                    filteredOptionList: options,
+                    index: options.indexOf(this.subjOptionsSelected.value[0])
+                }));
             } else {
                 this.navigateOption(ENavigation.first);
             }
@@ -417,6 +457,10 @@ export class NgxSelectComponent implements ControlValueAccessor, DoCheck, AfterC
             window.scrollTo(x, y);
         }
         this.close.emit();
+
+        if (this.autoClearSearch && this.multiple && this.inputElRef) {
+            this.inputElRef.nativeElement.value = null;
+        }
     }
 
     private buildOptions(data: any[]): Array<NgxSelectOption | NgxSelectOptGroup> {
@@ -425,7 +469,7 @@ export class NgxSelectComponent implements ControlValueAccessor, DoCheck, AfterC
             let option: NgxSelectOption;
             data.forEach((item: any) => {
                 const isOptGroup = typeof item === 'object' && item !== null &&
-                    item.hasOwnProperty(this.optGroupLabelField) && item.hasOwnProperty(this.optGroupOptionsField) &&
+                    propertyExists(item, this.optGroupLabelField) && propertyExists(item, this.optGroupOptionsField) &&
                     Array.isArray(item[this.optGroupOptionsField]);
                 if (isOptGroup) {
                     const optGroup = new NgxSelectOptGroup(item[this.optGroupLabelField]);
@@ -449,14 +493,14 @@ export class NgxSelectComponent implements ControlValueAccessor, DoCheck, AfterC
             value = text = data;
             disabled = false;
         } else if (typeof data === 'object' && data !== null &&
-            (data.hasOwnProperty(this.optionValueField) || data.hasOwnProperty(this.optionTextField))) {
-            value = data.hasOwnProperty(this.optionValueField) ? data[this.optionValueField] : data[this.optionTextField];
-            text = data.hasOwnProperty(this.optionTextField) ? data[this.optionTextField] : data[this.optionValueField];
-            disabled = data.hasOwnProperty('disabled') ? data['disabled'] : false;
+            (propertyExists(data, this.optionValueField) || propertyExists(data, this.optionTextField))) {
+            value = propertyExists(data, this.optionValueField) ? data[this.optionValueField] : data[this.optionTextField];
+            text = propertyExists(data, this.optionTextField) ? data[this.optionTextField] : data[this.optionValueField];
+            disabled = propertyExists(data, 'disabled') ? data['disabled'] : false;
         } else {
             return null;
         }
-        return new NgxSelectOption(value, text, disabled, parent);
+        return new NgxSelectOption(value, text, disabled, data, parent);
     }
 
     //////////// interface ControlValueAccessor ////////////
