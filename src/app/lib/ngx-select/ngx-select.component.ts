@@ -24,7 +24,7 @@ import * as lodashNs from 'lodash';
 import * as escapeStringNs from 'escape-string-regexp';
 import {NgxSelectOptGroup, NgxSelectOption, TSelectOption} from './ngx-select.classes';
 import {NgxSelectOptionDirective, NgxSelectOptionNotFoundDirective, NgxSelectOptionSelectedDirective} from './ngx-templates.directive';
-import {INgxOptionNavigated, INgxSelectOptions} from './ngx-select.interfaces';
+import {INgxOptionNavigated, INgxSelectOption, INgxSelectOptions} from './ngx-select.interfaces';
 
 const _ = lodashNs;
 const escapeString = escapeStringNs;
@@ -71,6 +71,7 @@ export class NgxSelectComponent implements INgxSelectOptions, ControlValueAccess
     @Input() public autoClearSearch = false;
     @Input() public noResultsFound = 'No results found';
     @Input() public size: 'small' | 'default' | 'large' = 'default';
+    @Input() public searchCallback: (search: string, item: INgxSelectOption) => boolean;
     public keyCodeToRemoveSelected = 46; /*key delete*/
 
     @Output() public typed = new EventEmitter<string>();
@@ -339,13 +340,15 @@ export class NgxSelectComponent implements INgxSelectOptions, ControlValueAccess
         return (this.multiple === true) || (this.optionsOpened && !this.noAutoComplete);
     }
 
-    protected inputKeyUp(event: KeyboardEvent, value: string = '') {
-        if (this.optionsOpened) {
-            if (event.key && (event.key.length === 1 || event.key === 'Backspace')) {
-                this.typed.emit(value);
-            }
-        } else if (value) {
+    protected inputKeyUp(value: string = '') {
+        if (!this.optionsOpened && value) {
             this.optionsOpen(value);
+        }
+    }
+
+    protected doInputText(value: string) {
+        if (this.optionsOpened) {
+            this.typed.emit(value);
         }
     }
 
@@ -405,6 +408,9 @@ export class NgxSelectComponent implements INgxSelectOptions, ControlValueAccess
     private filterOptions(search: string, options: TSelectOption[], selectedOptions: NgxSelectOption[]): TSelectOption[] {
         const regExp = new RegExp(escapeString(search), 'i'),
             filterOption = (option: NgxSelectOption) => {
+                if (this.searchCallback) {
+                    return this.searchCallback(search, option);
+                }
                 return (!search || regExp.test(option.text)) && (!this.multiple || selectedOptions.indexOf(option) === -1);
             };
 
@@ -431,7 +437,7 @@ export class NgxSelectComponent implements INgxSelectOptions, ControlValueAccess
         }
     }
 
-    private optionsOpen(search: string = '') {
+    public optionsOpen(search: string = '') {
         if (!this.disabled) {
             this.optionsOpened = true;
             this.subjSearchText.next(search);
@@ -449,7 +455,7 @@ export class NgxSelectComponent implements INgxSelectOptions, ControlValueAccess
         }
     }
 
-    private optionsClose(focusToHost: boolean = false) {
+    public optionsClose(focusToHost: boolean = false) {
         this.optionsOpened = false;
         if (focusToHost) {
             const x = window.scrollX, y = window.scrollY;
