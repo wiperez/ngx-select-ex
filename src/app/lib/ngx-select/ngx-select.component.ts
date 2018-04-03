@@ -24,7 +24,7 @@ import * as lodashNs from 'lodash';
 import * as escapeStringNs from 'escape-string-regexp';
 import {NgxSelectOptGroup, NgxSelectOption, TSelectOption} from './ngx-select.classes';
 import {NgxSelectOptionDirective, NgxSelectOptionNotFoundDirective, NgxSelectOptionSelectedDirective} from './ngx-templates.directive';
-import {INgxOptionNavigated, INgxSelectOptions} from './ngx-select.interfaces';
+import {INgxOptionNavigated, INgxSelectOption, INgxSelectOptions} from './ngx-select.interfaces';
 
 const _ = lodashNs;
 const escapeString = escapeStringNs;
@@ -71,7 +71,15 @@ export class NgxSelectComponent implements INgxSelectOptions, ControlValueAccess
     @Input() public autoClearSearch = false;
     @Input() public noResultsFound = 'No results found';
     @Input() public size: 'small' | 'default' | 'large' = 'default';
-    public keyCodeToRemoveSelected = 46; /*key delete*/
+    @Input() public searchCallback: (search: string, item: INgxSelectOption) => boolean;
+    public keyCodeToRemoveSelected = 'Delete';
+    public keyCodeToOptionsOpen = 'Enter';
+    public keyCodeToOptionsClose = 'Escape';
+    public keyCodeToOptionsSelect = 'Enter';
+    public keyCodeToNavigateFirst = 'ArrowLeft';
+    public keyCodeToNavigatePrevious = 'ArrowUp';
+    public keyCodeToNavigateNext = 'ArrowDown';
+    public keyCodeToNavigateLast = 'ArrowRight';
 
     @Output() public typed = new EventEmitter<string>();
     @Output() public focus = new EventEmitter<void>();
@@ -110,7 +118,7 @@ export class NgxSelectComponent implements INgxSelectOptions, ControlValueAccess
     private cacheElementOffsetTop: number;
 
     private _focusToInput = false;
-    private isFocused = false;
+    public isFocused = false;
 
     constructor(iterableDiffers: IterableDiffers, private sanitizer: DomSanitizer, private cd: ChangeDetectorRef,
                 @Inject(NGX_SELECT_OPTIONS) @Optional() defaultOptions: INgxSelectOptions) {
@@ -293,39 +301,53 @@ export class NgxSelectComponent implements INgxSelectOptions, ControlValueAccess
     }
 
     public inputKeyDown(event: KeyboardEvent) {
-        if (event.keyCode === 13 /*key enter*/) {
+        console.log(event.keyCode, event);
+        const keysForOpenedState = [
+            this.keyCodeToOptionsSelect,
+            this.keyCodeToNavigateFirst,
+            this.keyCodeToNavigatePrevious,
+            this.keyCodeToNavigateNext,
+            this.keyCodeToNavigateLast,
+        ];
+        const keysForClosedState = [this.keyCodeToOptionsOpen, this.keyCodeToRemoveSelected];
+
+        if (this.optionsOpened && keysForOpenedState.indexOf(event.code) !== -1) {
             event.preventDefault();
             event.stopPropagation();
-            if (this.optionsOpened) {
-                this.optionSelect(this.optionActive);
-                this.navigateOption(ENavigation.next);
-            } else {
-                this.optionsOpen();
-            }
-        } else if (this.optionsOpened && [37, 38, 39, 40].indexOf(event.keyCode) !== -1) {
-            event.preventDefault();
-            event.stopPropagation();
-            switch (event.keyCode) {
-                case 37: // key arrow_left
+            switch (event.code) {
+                case this.keyCodeToOptionsSelect:
+                    this.optionSelect(this.optionActive);
+                    this.navigateOption(ENavigation.next);
+                    break;
+                case this.keyCodeToNavigateFirst:
                     this.navigateOption(ENavigation.first);
                     break;
-                case 38: // key arrow_up
+                case this.keyCodeToNavigatePrevious:
                     this.navigateOption(ENavigation.previous);
                     break;
-                case 39: // key arrow_right
+                case this.keyCodeToNavigateLast:
                     this.navigateOption(ENavigation.last);
                     break;
-                case 40: // key arrow_down
+                case this.keyCodeToNavigateNext:
                     this.navigateOption(ENavigation.next);
                     break;
             }
-        } else if (!this.optionsOpened && event.keyCode === this.keyCodeToRemoveSelected) {
-            this.optionRemove(this.subjOptionsSelected.value[this.subjOptionsSelected.value.length - 1], event);
+        } else if (!this.optionsOpened && keysForClosedState.indexOf(event.code) !== -1) {
+            event.preventDefault();
+            event.stopPropagation();
+            switch (event.code) {
+                case this.keyCodeToOptionsOpen:
+                    this.optionsOpen();
+                    break;
+                case this.keyCodeToRemoveSelected:
+                    this.optionRemove(this.subjOptionsSelected.value[this.subjOptionsSelected.value.length - 1], event);
+                    break;
+            }
         }
     }
 
     public mainKeyUp(event: KeyboardEvent): void {
-        if (event.keyCode === 27 /* key escape */) {
+        if (event.code === this.keyCodeToOptionsClose) {
             this.optionsClose(true);
         }
     }
@@ -339,13 +361,15 @@ export class NgxSelectComponent implements INgxSelectOptions, ControlValueAccess
         return (this.multiple === true) || (this.optionsOpened && !this.noAutoComplete);
     }
 
-    protected inputKeyUp(event: KeyboardEvent, value: string = '') {
-        if (this.optionsOpened) {
-            if (event.key && (event.key.length === 1 || event.key === 'Backspace')) {
-                this.typed.emit(value);
-            }
-        } else if (value) {
+    protected inputKeyUp(value: string = '') {
+        if (!this.optionsOpened && value) {
             this.optionsOpen(value);
+        }
+    }
+
+    protected doInputText(value: string) {
+        if (this.optionsOpened) {
+            this.typed.emit(value);
         }
     }
 
@@ -405,6 +429,9 @@ export class NgxSelectComponent implements INgxSelectOptions, ControlValueAccess
     private filterOptions(search: string, options: TSelectOption[], selectedOptions: NgxSelectOption[]): TSelectOption[] {
         const regExp = new RegExp(escapeString(search), 'i'),
             filterOption = (option: NgxSelectOption) => {
+                if (this.searchCallback) {
+                    return this.searchCallback(search, option);
+                }
                 return (!search || regExp.test(option.text)) && (!this.multiple || selectedOptions.indexOf(option) === -1);
             };
 
@@ -431,7 +458,7 @@ export class NgxSelectComponent implements INgxSelectOptions, ControlValueAccess
         }
     }
 
-    private optionsOpen(search: string = '') {
+    public optionsOpen(search: string = '') {
         if (!this.disabled) {
             this.optionsOpened = true;
             this.subjSearchText.next(search);
@@ -449,7 +476,7 @@ export class NgxSelectComponent implements INgxSelectOptions, ControlValueAccess
         }
     }
 
-    private optionsClose(focusToHost: boolean = false) {
+    public optionsClose(focusToHost: boolean = false) {
         this.optionsOpened = false;
         if (focusToHost) {
             const x = window.scrollX, y = window.scrollY;

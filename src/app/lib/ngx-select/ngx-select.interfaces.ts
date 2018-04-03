@@ -38,5 +38,12 @@ export interface INgxSelectOptions {
     autoClearSearch?: boolean;
     noResultsFound?: string;
     size?: 'small' | 'default' | 'large';
-    keyCodeToRemoveSelected?: number;
+    keyCodeToRemoveSelected?: string;
+    keyCodeToOptionsOpen?: string;
+    keyCodeToOptionsClose?: string;
+    keyCodeToOptionsSelect?: string;
+    keyCodeToNavigateFirst?: string;
+    keyCodeToNavigatePrevious?: string;
+    keyCodeToNavigateNext?: string;
+    keyCodeToNavigateLast?: string;
 }
