@@ -24,6 +24,7 @@
     "precommit": "npm run test",
     "release": "standard-version --commit-all",
     "publish.ng4": "npm publish dist --tag ng4",
+    "publish.ng4-dev": "npm publish dist --tag ng4-dev",
     "publish.ng5": "npm publish dist",
     "publish.ng5-dev": "npm publish dist --tag dev",
     "start": "ng serve -op runtime",
