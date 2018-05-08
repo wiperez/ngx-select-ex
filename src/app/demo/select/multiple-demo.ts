@@ -18,6 +18,10 @@ export class MultipleDemoComponent {
 
     public ngxValue: any = [];
     public ngxDisabled = false;
-
+    public filterCities = (term: string) => {
+        return (option: any) => {
+            return option.data[0] === term;
+        };
+    }
     public doSelectOptions = (options: INgxSelectOption[]) => console.log('MultipleDemoComponent.doSelectOptions', options);
 }

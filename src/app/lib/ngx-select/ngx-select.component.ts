@@ -58,6 +58,7 @@ function propertyExists(obj: Object, propertyName: string) {
 })
 export class NgxSelectComponent implements INgxSelectOptions, ControlValueAccessor, DoCheck, AfterContentChecked {
     @Input() public items: any[];
+    @Input() public filter: (item: any) => boolean;
     @Input() public optionValueField = 'id';
     @Input() public optionTextField = 'text';
     @Input() public optGroupLabelField = 'label';
@@ -443,9 +444,12 @@ export class NgxSelectComponent implements INgxSelectOptions, ControlValueAccess
         const regExp = new RegExp(escapeString(search), 'i'),
             filterOption = (option: NgxSelectOption) => {
                 if (this.searchCallback) {
-                    return this.searchCallback(search, option);
+                    return this.searchCallback(search, option)
+                        && ((!!this.filter && this.filter(option)) || !this.filter);
                 }
-                return (!search || regExp.test(option.text)) && (!this.multiple || selectedOptions.indexOf(option) === -1);
+                return (!search || regExp.test(option.text))
+                    && (!this.multiple || selectedOptions.indexOf(option) === -1)
+                    && ((!!this.filter && this.filter(option)) || !this.filter);
             };
 
         return options.filter((option: TSelectOption) => {

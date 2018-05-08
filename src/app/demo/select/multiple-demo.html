@@ -3,6 +3,7 @@
     <div class="example-block__item">
         <ngx-select [multiple]="true"
                     [items]="items"
+                    [filter]="filterCities('Z')"
                     [disabled]="ngxDisabled"
                     [(ngModel)]="ngxValue"
                     placeholder="No city selected"
